@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: spark-sgx-native
+Description: Spark SGX Native Library
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -lsgxspark
+Cflags: -I${includedir}
+
