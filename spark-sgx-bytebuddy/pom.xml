@@ -119,10 +119,10 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.apache.spark.sgx.SGXSparkAgent</mainClass>
+                                    <mainClass>org.apache.spark.sgx.AgentSpark</mainClass>
                                     <manifestEntries>
-                                        <Premain-Class>org.apache.spark.sgx.SGXSparkAgent</Premain-Class>
-                                        <Agent-Class>org.apache.spark.sgx.SGXSparkAgent</Agent-Class>
+                                        <Premain-Class>org.apache.spark.sgx.AgentSpark</Premain-Class>
+                                        <Agent-Class>org.apache.spark.sgx.AgentSpark</Agent-Class>
                                         <Can-Redefine-Classes>true</Can-Redefine-Classes>
                                         <Can-Retransform-Classes>true</Can-Retransform-Classes>
                                     </manifestEntries>

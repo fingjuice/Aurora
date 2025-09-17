@@ -16,16 +16,19 @@ public class SGXCollectActionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SGXCollectActionFactory.class);
 
     @SuppressWarnings("unchecked")
-    public static <T> Iterator<T> createSGXCollectAction(RDD<?> rdd, Partition split, TaskContext context) {
+
+    public static <T> List<T> executeCollectAction(RDD<?> rdd) {
         try {
-            logger.debug("Creating SGX Collect Action for partition: {}", split.index());
+            logger.debug("Executing SGX Collect Action for RDD type: {}", rdd.getClass().getSimpleName());
             
-            // 收集当前分区的数据
-            scala.collection.Iterator<?> currentPartitionData = rdd.iterator(split, context);
+            // 收集所有分区的数据
             List<Object> inputData = new ArrayList<>();
-            while (currentPartitionData.hasNext()) {
-                Object item = currentPartitionData.next();
-                inputData.add(item.toString());
+            for (int i = 0; i < rdd.getNumPartitions(); i++) {
+                scala.collection.Iterator<?> partitionData = rdd.iterator(rdd.partitions()[i], null);
+                while (partitionData.hasNext()) {
+                    Object item = partitionData.next();
+                    inputData.add(item.toString());
+                }
             }
             
             // 准备操作数据
@@ -40,13 +43,13 @@ public class SGXCollectActionFactory {
                 convertedResult.add((T) item);
             }
             
-            logger.debug("SGX Collect Action completed for partition: {}, result size: {}", 
-                        split.index(), convertedResult.size());
-            return convertedResult.iterator();
+            logger.debug("SGX Collect Action completed for RDD type: {}, result size: {}", 
+                        rdd.getClass().getSimpleName(), convertedResult.size());
+            return convertedResult;
             
         } catch (Exception e) {
-            logger.error("Failed to create SGX Collect Action for partition: {}", split.index(), e);
-            throw new RuntimeException("SGX Collect Action creation failed", e);
+            logger.error("Failed to execute SGX Collect Action for RDD type: {}", rdd.getClass().getSimpleName(), e);
+            throw new RuntimeException("SGX Collect Action execution failed", e);
         }
     }
     

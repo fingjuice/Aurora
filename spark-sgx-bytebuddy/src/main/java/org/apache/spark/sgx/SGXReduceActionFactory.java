@@ -15,43 +15,45 @@ import java.util.ArrayList;
 public class SGXReduceActionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SGXReduceActionFactory.class);
 
-    @SuppressWarnings("unchecked")
-    public static <T> Iterator<T> createSGXReduceAction(RDD<?> rdd, Partition split, TaskContext context) {
+    public static Object executeReduceAction(RDD<?> rdd, Object f) {
         try {
-            logger.debug("Creating SGX Reduce Action for partition: {}", split.index());
+            logger.debug("Executing SGX Reduce Action for RDD type: {}", rdd.getClass().getSimpleName());
             
-            // 收集当前分区的数据
-            scala.collection.Iterator<?> currentPartitionData = rdd.iterator(split, context);
+            // 收集所有分区的数据
             List<Object> inputData = new ArrayList<>();
-            while (currentPartitionData.hasNext()) {
-                Object item = currentPartitionData.next();
-                inputData.add(item.toString());
+            for (int i = 0; i < rdd.getNumPartitions(); i++) {
+                scala.collection.Iterator<?> partitionData = rdd.iterator(rdd.partitions()[i], null);
+                while (partitionData.hasNext()) {
+                    Object item = partitionData.next();
+                    inputData.add(item.toString());
+                }
             }
             
             // 准备操作数据
-            String operationData = prepareReduceOperationData(rdd);
+            String operationData = prepareReduceOperationData(rdd, f);
             
             // 调用JNI执行SGX计算
             List<Object> result = SGXJNIWrapper.executeReduceAction(inputData, operationData);
             
-            // 转换结果
-            List<T> convertedResult = new ArrayList<>();
-            for (Object item : result) {
-                convertedResult.add((T) item);
+            // 转换结果 - reduce返回单个值
+            if (!result.isEmpty()) {
+                logger.debug("SGX Reduce Action completed for RDD type: {}, reduced value: {}", 
+                            rdd.getClass().getSimpleName(), result.get(0));
+                return result.get(0);
             }
             
-            logger.debug("SGX Reduce Action completed for partition: {}, result size: {}", 
-                        split.index(), convertedResult.size());
-            return convertedResult.iterator();
+            logger.debug("SGX Reduce Action completed for RDD type: {}, no elements to reduce", 
+                        rdd.getClass().getSimpleName());
+            return null;
             
         } catch (Exception e) {
-            logger.error("Failed to create SGX Reduce Action for partition: {}", split.index(), e);
-            throw new RuntimeException("SGX Reduce Action creation failed", e);
+            logger.error("Failed to execute SGX Reduce Action for RDD type: {}", rdd.getClass().getSimpleName(), e);
+            throw new RuntimeException("SGX Reduce Action execution failed", e);
         }
     }
     
-    private static String prepareReduceOperationData(RDD<?> rdd) {
+    private static String prepareReduceOperationData(RDD<?> rdd, Object f) {
         // 准备reduce操作所需的数据
-        return "reduce_operation_data";
+        return "reduce_operation_data:" + f.toString();
     }
 }

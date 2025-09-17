@@ -1,15 +1,12 @@
 package org.apache.spark.sgx;
 
 import net.bytebuddy.asm.Advice;
-import org.apache.spark.Partition;
-import org.apache.spark.TaskContext;
 import org.apache.spark.rdd.RDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Iterator;
 
 /**
- * SGX Count Action Advice - 拦截Count操作的compute方法
+ * SGX Count Action Advice - 拦截RDD.count()方法
  * 用于count()操作
  */
 public class SGXCountActionAdvice {
@@ -18,18 +15,16 @@ public class SGXCountActionAdvice {
     @Advice.OnMethodEnter
     public static void onEnter(
             @Advice.This RDD<?> rdd,
-            @Advice.Argument(0) Partition split,
-            @Advice.Argument(1) TaskContext context,
-            @Advice.Return(readOnly = false) Iterator<?> result) {
+            @Advice.Return(readOnly = false) Long result) {
 
-        logger.debug("Intercepting Count Action compute for partition: {}", split.index());
+        logger.debug("Intercepting RDD.count() for RDD type: {}", rdd.getClass().getSimpleName());
 
         try {
             // 调用SGX工厂方法处理Count Action
-            result = SGXCountActionFactory.createSGXCountAction(rdd, split, context);
-            logger.debug("SGX Count Action processing completed for partition: {}", split.index());
+            result = SGXCountActionFactory.executeCountAction(rdd);
+            logger.debug("SGX Count Action processing completed for RDD type: {}", rdd.getClass().getSimpleName());
         } catch (Exception e) {
-            logger.error("SGX Count Action processing failed for partition: {}, using original implementation", split.index(), e);
+            logger.error("SGX Count Action processing failed for RDD type: {}, using original implementation", rdd.getClass().getSimpleName(), e);
             // 如果SGX处理失败，让原始方法继续执行
         }
     }

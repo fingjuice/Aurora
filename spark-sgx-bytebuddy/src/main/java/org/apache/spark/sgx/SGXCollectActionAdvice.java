@@ -1,15 +1,13 @@
 package org.apache.spark.sgx;
 
 import net.bytebuddy.asm.Advice;
-import org.apache.spark.Partition;
-import org.apache.spark.TaskContext;
 import org.apache.spark.rdd.RDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Iterator;
+import java.util.List;
 
 /**
- * SGX Collect Action Advice - 拦截Collect操作的compute方法
+ * SGX Collect Action Advice - 拦截RDD.collect()方法
  * 用于collect()操作
  */
 public class SGXCollectActionAdvice {
@@ -18,18 +16,16 @@ public class SGXCollectActionAdvice {
     @Advice.OnMethodEnter
     public static void onEnter(
             @Advice.This RDD<?> rdd,
-            @Advice.Argument(0) Partition split,
-            @Advice.Argument(1) TaskContext context,
-            @Advice.Return(readOnly = false) Iterator<?> result) {
+            @Advice.Return(readOnly = false) List<?> result) {
 
-        logger.debug("Intercepting Collect Action compute for partition: {}", split.index());
+        logger.debug("Intercepting RDD.collect() for RDD type: {}", rdd.getClass().getSimpleName());
 
         try {
             // 调用SGX工厂方法处理Collect Action
-            result = SGXCollectActionFactory.createSGXCollectAction(rdd, split, context);
-            logger.debug("SGX Collect Action processing completed for partition: {}", split.index());
+            result = SGXCollectActionFactory.executeCollectAction(rdd);
+            logger.debug("SGX Collect Action processing completed for RDD type: {}", rdd.getClass().getSimpleName());
         } catch (Exception e) {
-            logger.error("SGX Collect Action processing failed for partition: {}, using original implementation", split.index(), e);
+            logger.error("SGX Collect Action processing failed for RDD type: {}, using original implementation", rdd.getClass().getSimpleName(), e);
             // 如果SGX处理失败，让原始方法继续执行
         }
     }

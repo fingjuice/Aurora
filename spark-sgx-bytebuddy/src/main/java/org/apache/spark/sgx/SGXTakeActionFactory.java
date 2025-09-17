@@ -16,20 +16,23 @@ public class SGXTakeActionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SGXTakeActionFactory.class);
 
     @SuppressWarnings("unchecked")
-    public static <T> Iterator<T> createSGXTakeAction(RDD<?> rdd, Partition split, TaskContext context) {
+    public static <T> List<T> executeTakeAction(RDD<?> rdd, int num) {
         try {
-            logger.debug("Creating SGX Take Action for partition: {}", split.index());
+            logger.debug("Executing SGX Take Action for RDD type: {}, taking {} elements", 
+                        rdd.getClass().getSimpleName(), num);
             
-            // 收集当前分区的数据
-            scala.collection.Iterator<?> currentPartitionData = rdd.iterator(split, context);
+            // 收集所有分区的数据
             List<Object> inputData = new ArrayList<>();
-            while (currentPartitionData.hasNext()) {
-                Object item = currentPartitionData.next();
-                inputData.add(item.toString());
+            for (int i = 0; i < rdd.getNumPartitions(); i++) {
+                scala.collection.Iterator<?> partitionData = rdd.iterator(rdd.partitions()[i], null);
+                while (partitionData.hasNext()) {
+                    Object item = partitionData.next();
+                    inputData.add(item.toString());
+                }
             }
             
             // 准备操作数据
-            String operationData = prepareTakeOperationData(rdd);
+            String operationData = prepareTakeOperationData(rdd, num);
             
             // 调用JNI执行SGX计算
             List<Object> result = SGXJNIWrapper.executeTakeAction(inputData, operationData);
@@ -40,18 +43,18 @@ public class SGXTakeActionFactory {
                 convertedResult.add((T) item);
             }
             
-            logger.debug("SGX Take Action completed for partition: {}, result size: {}", 
-                        split.index(), convertedResult.size());
-            return convertedResult.iterator();
+            logger.debug("SGX Take Action completed for RDD type: {}, took {} elements", 
+                        rdd.getClass().getSimpleName(), convertedResult.size());
+            return convertedResult;
             
         } catch (Exception e) {
-            logger.error("Failed to create SGX Take Action for partition: {}", split.index(), e);
-            throw new RuntimeException("SGX Take Action creation failed", e);
+            logger.error("Failed to execute SGX Take Action for RDD type: {}", rdd.getClass().getSimpleName(), e);
+            throw new RuntimeException("SGX Take Action execution failed", e);
         }
     }
     
-    private static String prepareTakeOperationData(RDD<?> rdd) {
+    private static String prepareTakeOperationData(RDD<?> rdd, int num) {
         // 准备take操作所需的数据
-        return "take_operation_data";
+        return "take_operation_data:" + num;
     }
 }

@@ -15,17 +15,18 @@ import java.util.ArrayList;
 public class SGXCountActionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SGXCountActionFactory.class);
 
-    @SuppressWarnings("unchecked")
-    public static <T> Iterator<T> createSGXCountAction(RDD<?> rdd, Partition split, TaskContext context) {
+    public static Long executeCountAction(RDD<?> rdd) {
         try {
-            logger.debug("Creating SGX Count Action for partition: {}", split.index());
+            logger.debug("Executing SGX Count Action for RDD type: {}", rdd.getClass().getSimpleName());
             
-            // 收集当前分区的数据
-            scala.collection.Iterator<?> currentPartitionData = rdd.iterator(split, context);
+            // 收集所有分区的数据
             List<Object> inputData = new ArrayList<>();
-            while (currentPartitionData.hasNext()) {
-                Object item = currentPartitionData.next();
-                inputData.add(item.toString());
+            for (int i = 0; i < rdd.getNumPartitions(); i++) {
+                scala.collection.Iterator<?> partitionData = rdd.iterator(rdd.partitions()[i], null);
+                while (partitionData.hasNext()) {
+                    Object item = partitionData.next();
+                    inputData.add(item.toString());
+                }
             }
             
             // 准备操作数据
@@ -34,19 +35,18 @@ public class SGXCountActionFactory {
             // 调用JNI执行SGX计算
             List<Object> result = SGXJNIWrapper.executeCountAction(inputData, operationData);
             
-            // 转换结果
-            List<T> convertedResult = new ArrayList<>();
-            for (Object item : result) {
-                convertedResult.add((T) item);
+            // 转换结果 - count返回Long类型
+            if (!result.isEmpty() && result.get(0) instanceof String) {
+                return Long.parseLong((String) result.get(0));
             }
             
-            logger.debug("SGX Count Action completed for partition: {}, result size: {}", 
-                        split.index(), convertedResult.size());
-            return convertedResult.iterator();
+            logger.debug("SGX Count Action completed for RDD type: {}, count: {}", 
+                        rdd.getClass().getSimpleName(), inputData.size());
+            return (long) inputData.size();
             
         } catch (Exception e) {
-            logger.error("Failed to create SGX Count Action for partition: {}", split.index(), e);
-            throw new RuntimeException("SGX Count Action creation failed", e);
+            logger.error("Failed to execute SGX Count Action for RDD type: {}", rdd.getClass().getSimpleName(), e);
+            throw new RuntimeException("SGX Count Action execution failed", e);
         }
     }
     

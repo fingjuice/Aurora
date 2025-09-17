@@ -15,43 +15,37 @@ import java.util.ArrayList;
 public class SGXForeachActionFactory {
     private static final Logger logger = LoggerFactory.getLogger(SGXForeachActionFactory.class);
 
-    @SuppressWarnings("unchecked")
-    public static <T> Iterator<T> createSGXForeachAction(RDD<?> rdd, Partition split, TaskContext context) {
+    public static void executeForeachAction(RDD<?> rdd, Object f) {
         try {
-            logger.debug("Creating SGX Foreach Action for partition: {}", split.index());
+            logger.debug("Executing SGX Foreach Action for RDD type: {}", rdd.getClass().getSimpleName());
             
-            // 收集当前分区的数据
-            scala.collection.Iterator<?> currentPartitionData = rdd.iterator(split, context);
+            // 收集所有分区的数据
             List<Object> inputData = new ArrayList<>();
-            while (currentPartitionData.hasNext()) {
-                Object item = currentPartitionData.next();
-                inputData.add(item.toString());
+            for (int i = 0; i < rdd.getNumPartitions(); i++) {
+                scala.collection.Iterator<?> partitionData = rdd.iterator(rdd.partitions()[i], null);
+                while (partitionData.hasNext()) {
+                    Object item = partitionData.next();
+                    inputData.add(item.toString());
+                }
             }
             
             // 准备操作数据
-            String operationData = prepareForeachOperationData(rdd);
+            String operationData = prepareForeachOperationData(rdd, f);
             
             // 调用JNI执行SGX计算
-            List<Object> result = SGXJNIWrapper.executeForeachAction(inputData, operationData);
+            SGXJNIWrapper.executeForeachAction(inputData, operationData);
             
-            // 转换结果
-            List<T> convertedResult = new ArrayList<>();
-            for (Object item : result) {
-                convertedResult.add((T) item);
-            }
-            
-            logger.debug("SGX Foreach Action completed for partition: {}, result size: {}", 
-                        split.index(), convertedResult.size());
-            return convertedResult.iterator();
+            logger.debug("SGX Foreach Action completed for RDD type: {}, processed {} elements", 
+                        rdd.getClass().getSimpleName(), inputData.size());
             
         } catch (Exception e) {
-            logger.error("Failed to create SGX Foreach Action for partition: {}", split.index(), e);
-            throw new RuntimeException("SGX Foreach Action creation failed", e);
+            logger.error("Failed to execute SGX Foreach Action for RDD type: {}", rdd.getClass().getSimpleName(), e);
+            throw new RuntimeException("SGX Foreach Action execution failed", e);
         }
     }
     
-    private static String prepareForeachOperationData(RDD<?> rdd) {
+    private static String prepareForeachOperationData(RDD<?> rdd, Object f) {
         // 准备foreach操作所需的数据
-        return "foreach_operation_data";
+        return "foreach_operation_data:" + f.toString();
     }
 }

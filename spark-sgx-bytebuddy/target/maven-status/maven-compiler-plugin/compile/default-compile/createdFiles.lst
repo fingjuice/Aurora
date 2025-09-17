@@ -1,6 +1,5 @@
 org/apache/spark/sgx/SGXCoalesceAdvice.class
 org/apache/spark/sgx/SGXForeachActionAdvice.class
-org/apache/spark/sgx/SGXSparkAgent.class
 org/apache/spark/sgx/SGXReduceActionAdvice.class
 org/apache/spark/sgx/SGXMapValuesFactory.class
 org/apache/spark/sgx/SGXFlatMappedRDDFactory.class
@@ -36,7 +35,9 @@ org/apache/spark/sgx/SGXFirstActionAdvice.class
 org/apache/spark/sgx/SGXReducedRDDAdvice.class
 org/apache/spark/sgx/SGXUnionRDDFactory.class
 org/apache/spark/sgx/SGXForeachActionFactory.class
+org/apache/spark/sgx/AgentSpark.class
 org/apache/spark/sgx/SGXMapPartitionsRDDAdvice.class
 org/apache/spark/sgx/SGXCountActionFactory.class
+org/apache/spark/sgx/config/SGXSparkConfig.class
 org/apache/spark/sgx/SGXFirstActionFactory.class
 org/apache/spark/sgx/SGXJoinedRDDFactory.class
